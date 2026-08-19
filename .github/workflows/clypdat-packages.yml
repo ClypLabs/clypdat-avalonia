@@ -41,13 +41,65 @@ jobs:
         shell: pwsh
         run: |
           $expected = "${{ steps.package.outputs.package_version }}"
+          $expectedIds = @(
+            'Avalonia',
+            'Avalonia.Base',
+            'Avalonia.Controls',
+            'Avalonia.DesignerSupport',
+            'Avalonia.Desktop',
+            'Avalonia.Dialogs',
+            'Avalonia.Fonts.Inter',
+            'Avalonia.FreeDesktop',
+            'Avalonia.FreeDesktop.AtSpi',
+            'Avalonia.HarfBuzz',
+            'Avalonia.Markup',
+            'Avalonia.Markup.Xaml',
+            'Avalonia.Metal',
+            'Avalonia.MicroCom',
+            'Avalonia.Native',
+            'Avalonia.OpenGL',
+            'Avalonia.Remote.Protocol',
+            'Avalonia.Skia',
+            'Avalonia.Themes.Fluent',
+            'Avalonia.Vulkan',
+            'Avalonia.Win32',
+            'Avalonia.Win32.Automation',
+            'Avalonia.X11'
+          )
           $files = Get-ChildItem artifacts/nuget -Filter *.nupkg -File
-          if ($files.Count -lt 4) { throw "Targeted package set is unexpectedly small." }
+          $actualNames = @($files.BaseName | Sort-Object)
+          $expectedNames = @($expectedIds | ForEach-Object { "$_.$expected" } | Sort-Object)
+          if (($actualNames -join '|') -ne ($expectedNames -join '|')) {
+            throw "Targeted package set mismatch. Expected: $($expectedNames -join ', '); actual: $($actualNames -join ', ')."
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packageIds = @{}
           $entries = foreach ($file in $files) {
             $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $archive = [IO.Compression.ZipFile]::OpenRead($file.FullName)
+            try {
+              $nuspec = $archive.Entries | Where-Object FullName -like '*.nuspec' | Select-Object -First 1
+              if ($null -eq $nuspec) { throw "Package $($file.Name) has no nuspec." }
+              $reader = [IO.StreamReader]::new($nuspec.Open())
+              try { $metadata = ([xml]$reader.ReadToEnd()).package.metadata }
+              finally { $reader.Dispose() }
+              if ($metadata.version -ne $expected) { throw "Package $($file.Name) has version $($metadata.version), expected $expected." }
+              $packageIds[$metadata.id] = $true
+              foreach ($dependency in (@($metadata.dependencies.group.dependency) + @($metadata.dependencies.dependency))) {
+                if ($dependency.id -like 'Avalonia*' -and $dependency.version -eq $expected -and -not $packageIds.ContainsKey($dependency.id)) {
+                  $dependencyPath = Join-Path artifacts/nuget "$($dependency.id).$expected.nupkg"
+                  if (-not (Test-Path -LiteralPath $dependencyPath -PathType Leaf)) {
+                    throw "Package $($file.Name) references same-version Avalonia dependency $($dependency.id), which is missing."
+                  }
+                }
+              }
+            }
+            finally { $archive.Dispose() }
             [ordered]@{ name = $file.Name; size = $file.Length; sha256 = $hash }
           }
-          if ($files.Name | Where-Object { $_ -notmatch [regex]::Escape($expected) }) { throw "A package was emitted with the wrong version." }
+          foreach ($id in $expectedIds) {
+            if (-not $packageIds.ContainsKey($id)) { throw "Package metadata id $id is missing." }
+          }
           [ordered]@{ schema = 1; repository = "ClypDat/clypdat-avalonia"; commit = "${{ github.sha }}"; packageVersion = $expected; packages = @($entries) } |
             ConvertTo-Json -Depth 5 | Set-Content artifacts/nuget/manifest.json -Encoding utf8
           Compress-Archive -Path artifacts/nuget/* -DestinationPath Avalonia-ClypDat-Packages.zip

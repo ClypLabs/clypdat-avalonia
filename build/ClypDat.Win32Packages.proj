@@ -13,20 +13,32 @@
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../packages/Avalonia/Avalonia.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Base/Avalonia.Base.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls/Avalonia.Controls.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.DesignerSupport/Avalonia.DesignerSupport.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Dialogs/Avalonia.Dialogs.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.FreeDesktop/Avalonia.FreeDesktop.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.FreeDesktop.AtSpi/Avalonia.FreeDesktop.AtSpi.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Markup/Avalonia.Markup/Avalonia.Markup.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Markup/Avalonia.Markup.Xaml/Avalonia.Markup.Xaml.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Metal/Avalonia.Metal.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.MicroCom/Avalonia.MicroCom.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Native/Avalonia.Native.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.OpenGL/Avalonia.OpenGL.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Remote.Protocol/Avalonia.Remote.Protocol.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Skia/Avalonia.Skia/Avalonia.Skia.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/HarfBuzz/Avalonia.HarfBuzz/Avalonia.HarfBuzz.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Vulkan/Avalonia.Vulkan.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Windows/Avalonia.Win32/Avalonia.Win32.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Windows/Avalonia.Win32.Automation/Avalonia.Win32.Automation.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Desktop/Avalonia.Desktop.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Fonts.Inter/Avalonia.Fonts.Inter.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Themes.Fluent/Avalonia.Themes.Fluent.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.X11/Avalonia.X11.csproj" />
   </ItemGroup>
   <PropertyGroup>
-    <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510,CS1591,RS2008,CA1416</ClypDatRestoreProperties>
-    <ClypDatPackProperties>Configuration=Release;TargetFramework=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510,CS1591,RS2008,CA1416;TreatWarningsAsErrors=false</ClypDatPackProperties>
+    <ClypDatKnownNullableWarnings>CS8600,CS8601,CS8602,CS8604,CS8618,CS8625,CS8631</ClypDatKnownNullableWarnings>
+    <ClypDatPackageNoWarn>NU1510,NU5104,CS1591,RS2008,CA1416,$(ClypDatKnownNullableWarnings)</ClypDatPackageNoWarn>
+    <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=$(ClypDatPackageNoWarn)</ClypDatRestoreProperties>
+    <ClypDatPackProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ForcePackAvaloniaNative=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=$(ClypDatPackageNoWarn);TreatWarningsAsErrors=true</ClypDatPackProperties>
   </PropertyGroup>
   <Target Name="Restore">
     <MSBuild Projects="@(ClypDatWin32BuildDependency)" Targets="Restore" BuildInParallel="false"
