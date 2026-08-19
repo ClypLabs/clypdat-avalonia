@@ -40,7 +40,7 @@
         <Visible>false</Visible>
         <BuildAction>None</BuildAction>
       </_PackageFiles>
-      <_PackageFiles Include="$(DesignerHostAppPath)/Avalonia.Designer.HostApp/bin/$(Configuration)/$(AvsLegacyTargetFrameworks)/Avalonia.Designer.HostApp.dll">
+      <_PackageFiles Include="$(DesignerHostAppPath)/Avalonia.Designer.HostApp/bin/$(Configuration)/$(AvsLegacyTargetFrameworks)/Avalonia.Designer.HostApp.dll" Condition="'$(AvsLegacyTargetFrameworks)' != ''">
         <PackagePath>tools/$(AvsLegacyTargetFrameworks)/designer</PackagePath>
         <Visible>false</Visible>
         <BuildAction>None</BuildAction>
