@@ -37,6 +37,21 @@ namespace Avalonia.Controls
                 defaultValue: WindowCornerPreference.Default,
                 validate: ValidateWindowCornerPreference);
 
+        /// <summary>
+        /// Defines the <c>LayeredWindowOpacityProperty</c> attached property.
+        /// </summary>
+        /// <remarks>
+        /// This is a Windows-only fallback for cases where normal Avalonia transparency is broken
+        /// by the compositor. It applies opacity to the whole HWND and is not equivalent to normal
+        /// Avalonia per-pixel transparency.
+        /// </remarks>
+        public static readonly AttachedProperty<double?> LayeredWindowOpacityProperty =
+            AvaloniaProperty.RegisterAttached<Window, double?>(
+                "LayeredWindowOpacity",
+                typeof(Win32Properties),
+                defaultValue: null,
+                validate: ValidateLayeredWindowOpacity);
+
         public delegate (uint style, uint exStyle) CustomWindowStylesCallback(uint style, uint exStyle);
         public delegate IntPtr CustomWndProcHookCallback(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled);
 
@@ -46,6 +61,12 @@ namespace Avalonia.Controls
             {
                 if (window.PlatformImpl is IWin32OptionsTopLevelImpl toplevelImpl)
                     toplevelImpl.SetWindowCornerPreference(e.GetNewValue<WindowCornerPreference>());
+            });
+
+            LayeredWindowOpacityProperty.Changed.AddClassHandler<Window>((window, e) =>
+            {
+                if (window.PlatformImpl is IWin32OptionsTopLevelImpl toplevelImpl)
+                    toplevelImpl.SetLayeredWindowOpacity(e.GetNewValue<double?>());
             });
         }
 
@@ -137,8 +158,32 @@ namespace Avalonia.Controls
         public static WindowCornerPreference GetWindowCornerPreference(Window window)
             => window.GetValue(WindowCornerPreferenceProperty);
 
+        /// <summary>
+        /// Sets whole-window layered opacity on the specified window.
+        /// </summary>
+        /// <param name="window">The window.</param>
+        /// <param name="value">The opacity from 0 to 1, or <see langword="null"/> to disable it.</param>
+        /// <remarks>
+        /// This is a Windows-only fallback for cases where normal Avalonia transparency is broken
+        /// by the compositor. It applies opacity to the whole HWND and is not equivalent to normal
+        /// Avalonia per-pixel transparency. It is ignored on other platforms.
+        /// </remarks>
+        public static void SetLayeredWindowOpacity(Window window, double? value)
+            => window.SetValue(LayeredWindowOpacityProperty, value);
+
+        /// <summary>
+        /// Gets whole-window layered opacity for the specified window.
+        /// </summary>
+        /// <param name="window">The window.</param>
+        /// <returns>The opacity from 0 to 1, or <see langword="null"/> when disabled.</returns>
+        public static double? GetLayeredWindowOpacity(Window window)
+            => window.GetValue(LayeredWindowOpacityProperty);
+
         private static bool ValidateWindowCornerPreference(WindowCornerPreference preference)
             => preference is >= WindowCornerPreference.Default and <= WindowCornerPreference.RoundSmall;
+
+        private static bool ValidateLayeredWindowOpacity(double? opacity)
+            => opacity is null || double.IsFinite(opacity.Value) && opacity.Value is >= 0 and <= 1;
 
         /// <summary>
         /// Represents a hit test value for a visual.

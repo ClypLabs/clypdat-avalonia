@@ -109,6 +109,7 @@ namespace Avalonia.Win32
         private WindowTransparencyLevel _transparencyLevel;
         private readonly WindowTransparencyLevel _defaultTransparencyLevel;
         private WindowCornerPreference _cornerPreference;
+        private bool _layeredWindowStyleAddedByAvalonia;
 
         private const int MaxPointerHistorySize = 512;
         private static readonly PooledList<RawPointerPoint> s_intermediatePointsPooledList = new();
@@ -1506,6 +1507,9 @@ namespace Avalonia.Win32
                     exStyle = (WindowStyles)e;
                 }
 
+                if (_layeredWindowStyleAddedByAvalonia)
+                    exStyle |= WindowStyles.WS_EX_LAYERED;
+
                 SetStyle(style);
                 SetExtendedStyle(exStyle);
             }
@@ -1600,6 +1604,63 @@ namespace Avalonia.Win32
         {
             _cornerPreference = preference;
             UpdateWindowCornerPreference();
+        }
+
+        public void SetLayeredWindowOpacity(double? opacity)
+        {
+            var currentStyle = GetExtendedStyle();
+
+            if (opacity is null)
+            {
+                if (currentStyle.HasFlag(WindowStyles.WS_EX_LAYERED) &&
+                    !SetLayeredWindowAttributes(_hwnd, 0, byte.MaxValue, LayeredWindowFlags.LWA_ALPHA))
+                {
+                    LogLayeredWindowOpacityFailure("reset");
+                }
+
+                if (_layeredWindowStyleAddedByAvalonia)
+                {
+                    SetExtendedStyle(currentStyle & ~WindowStyles.WS_EX_LAYERED);
+                    _layeredWindowStyleAddedByAvalonia = false;
+                }
+
+                return;
+            }
+
+            var addedStyle = !currentStyle.HasFlag(WindowStyles.WS_EX_LAYERED);
+            if (addedStyle)
+            {
+                SetExtendedStyle(currentStyle | WindowStyles.WS_EX_LAYERED);
+
+                if (!GetExtendedStyle().HasFlag(WindowStyles.WS_EX_LAYERED))
+                {
+                    LogLayeredWindowOpacityFailure("enable");
+                    return;
+                }
+
+                _layeredWindowStyleAddedByAvalonia = true;
+            }
+
+            var alpha = (byte)Math.Round(opacity.Value * byte.MaxValue);
+            if (SetLayeredWindowAttributes(_hwnd, 0, alpha, LayeredWindowFlags.LWA_ALPHA))
+                return;
+
+            LogLayeredWindowOpacityFailure("apply");
+
+            if (addedStyle)
+            {
+                SetExtendedStyle(currentStyle);
+                _layeredWindowStyleAddedByAvalonia = false;
+            }
+        }
+
+        private void LogLayeredWindowOpacityFailure(string operation)
+        {
+            Logger.TryGet(LogEventLevel.Warning, LogArea.Win32Platform)?.Log(
+                this,
+                "Failed to {Operation} layered window opacity. Win32 error: {Error}.",
+                operation,
+                Marshal.GetLastWin32Error());
         }
 
         /// <inheritdoc/>

@@ -41,6 +41,8 @@
       <Button Name="RestoreAll" Click="RestoreAll_Click">Restore All</Button>
       <Button Name="ShowTopmostWindow" Click="ShowTopmostWindow_Click">Show Topmost Window</Button>
       <Button Name="ShowTransparentWindow" Click="ShowTransparentWindow_Click">Transparent Window</Button>
+      <Button Name="ShowLayeredOpacityWindow" Click="ShowLayeredOpacityWindow_Click">Layered Opacity Window (Windows-only)</Button>
+      <TextBlock Text="Expected: opaque red at 50% over green appears olive/yellow-green." TextWrapping="Wrap" />
       <Button Name="ShowTransparentPopup" Click="ShowTransparentPopup_Click">Transparent Popup</Button>
     </StackPanel>
   </Grid>

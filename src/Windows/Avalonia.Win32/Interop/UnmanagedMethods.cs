@@ -1899,7 +1899,7 @@ namespace Avalonia.Win32.Interop
             LWA_COLORKEY = 0x00000001,
         }
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, LayeredWindowFlags dwFlags);
 
         [Flags]

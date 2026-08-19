@@ -152,6 +152,40 @@ public partial class WindowPage : UserControl
         popup.Open();
     }
 
+    private void ShowLayeredOpacityWindow_Click(object? sender, RoutedEventArgs e)
+    {
+        var backgroundWindow = new Window
+        {
+            Title = "Layered Opacity Window Background",
+            Name = "LayeredOpacityWindowBackground",
+            Width = 300,
+            Height = 300,
+            Background = Brushes.Green,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+
+        var window = new Window
+        {
+            Title = "Layered Opacity Window",
+            Name = "LayeredOpacityWindow",
+            WindowDecorations = WindowDecorations.None,
+            Width = 200,
+            Height = 200,
+            Background = Brushes.Red,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+
+        Win32Properties.SetLayeredWindowOpacity(window, 0.5);
+        window.PointerPressed += (_, _) =>
+        {
+            window.Close();
+            backgroundWindow.Close();
+        };
+
+        backgroundWindow.Show(Window);
+        window.Show(backgroundWindow);
+    }
+
     private void SendToBack_Click(object? sender, RoutedEventArgs e)
     {
         var lifetime = (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;

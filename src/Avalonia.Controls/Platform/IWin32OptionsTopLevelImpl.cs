@@ -22,5 +22,11 @@ namespace Avalonia.Controls.Platform
         /// </summary>
         /// <param name="preference">The value to set.</param>
         public void SetWindowCornerPreference(WindowCornerPreference preference);
+
+        /// <summary>
+        /// Sets whole-window layered opacity.
+        /// </summary>
+        /// <param name="opacity">The opacity, or <see langword="null"/> to disable layered opacity.</param>
+        public void SetLayeredWindowOpacity(double? opacity);
     }
 }
