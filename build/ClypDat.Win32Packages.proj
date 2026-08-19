@@ -1,0 +1,35 @@
+<Project>
+  <PropertyGroup>
+    <ClypDatPackageVersion Condition="'$(ClypDatPackageVersion)' == ''">12.2.1000-clypdat.local</ClypDatPackageVersion>
+    <ClypDatPackageOutput Condition="'$(ClypDatPackageOutput)' == ''">$(MSBuildThisFileDirectory)../artifacts/nuget</ClypDatPackageOutput>
+  </PropertyGroup>
+  <!-- This is intentionally an explicit Windows package surface. Mobile
+       workloads, samples, tools, and test projects never enter this graph. -->
+  <ItemGroup>
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../packages/Avalonia/Avalonia.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Base/Avalonia.Base.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls/Avalonia.Controls.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Dialogs/Avalonia.Dialogs.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Markup/Avalonia.Markup/Avalonia.Markup.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Markup/Avalonia.Markup.Xaml/Avalonia.Markup.Xaml.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Skia/Avalonia.Skia/Avalonia.Skia.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/HarfBuzz/Avalonia.HarfBuzz/Avalonia.HarfBuzz.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Windows/Avalonia.Win32/Avalonia.Win32.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Windows/Avalonia.Win32.Automation/Avalonia.Win32.Automation.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Desktop/Avalonia.Desktop.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Fonts.Inter/Avalonia.Fonts.Inter.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Themes.Fluent/Avalonia.Themes.Fluent.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <ClypDatPackageProperties>Configuration=Release;TargetFramework=net10.0;TargetFrameworks=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false</ClypDatPackageProperties>
+  </PropertyGroup>
+  <Target Name="Restore">
+    <MSBuild Projects="@(ClypDatWin32Package)" Targets="Restore" BuildInParallel="false"
+             Properties="$(ClypDatPackageProperties)" />
+  </Target>
+  <Target Name="Pack" DependsOnTargets="Restore">
+    <MakeDir Directories="$(ClypDatPackageOutput)" />
+    <MSBuild Projects="@(ClypDatWin32Package)" Targets="Pack" BuildInParallel="false"
+             Properties="$(ClypDatPackageProperties)" />
+  </Target>
+</Project>

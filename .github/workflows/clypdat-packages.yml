@@ -1,0 +1,74 @@
+name: ClypDat Windows packages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clypdat-packages-main
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore targeted package graph
+        shell: pwsh
+        run: dotnet restore build/ClypDat.Win32Packages.proj -p:AvsSkipBuildingLegacyTargetFrameworks=True
+
+      - name: Build and test targeted package graph
+        shell: pwsh
+        run: |
+          $height = (git rev-list --count HEAD).Trim()
+          $sha = (git rev-parse --short=12 HEAD).Trim()
+          $version = "12.2.1000-clypdat.$height.$sha"
+          "package_version=$version" >> $env:GITHUB_OUTPUT
+          "commit_height=$height" >> $env:GITHUB_OUTPUT
+          "commit_sha=$sha" >> $env:GITHUB_OUTPUT
+          dotnet msbuild build/ClypDat.Win32Packages.proj /t:Pack /p:ClypDatPackageVersion=$version /p:ClypDatPackageOutput=$pwd/artifacts/nuget
+        id: package
+
+      - name: Run Win32 layered-opacity tests
+        shell: pwsh
+        run: dotnet test tests/Avalonia.IntegrationTests.Win32/Avalonia.IntegrationTests.Win32.csproj -c Release -f net10.0 --no-restore
+
+      - name: Verify package smoke set and manifest
+        shell: pwsh
+        run: |
+          $expected = "${{ steps.package.outputs.package_version }}"
+          $files = Get-ChildItem artifacts/nuget -Filter *.nupkg -File
+          if ($files.Count -lt 4) { throw "Targeted package set is unexpectedly small." }
+          $entries = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            [ordered]@{ name = $file.Name; size = $file.Length; sha256 = $hash }
+          }
+          if ($files.Name | Where-Object { $_ -notmatch [regex]::Escape($expected) }) { throw "A package was emitted with the wrong version." }
+          [ordered]@{ schema = 1; repository = "ClypDat/clypdat-avalonia"; commit = "${{ github.sha }}"; packageVersion = $expected; packages = @($entries) } |
+            ConvertTo-Json -Depth 5 | Set-Content artifacts/nuget/manifest.json -Encoding utf8
+          Compress-Archive -Path artifacts/nuget/* -DestinationPath Avalonia-ClypDat-Packages.zip
+
+      - name: Upload immutable package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-packages-${{ github.sha }}
+          path: Avalonia-ClypDat-Packages.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Trigger ClypDat Dev build
+        env:
+          GH_TOKEN: ${{ secrets.CLYPDAT_DEV_DISPATCH_TOKEN }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { throw "CLYPDAT_DEV_DISPATCH_TOKEN is not configured." }
+          gh api repos/ClypDat/ClypDat/actions/workflows/dev-build.yml/dispatches `
+            -f ref=master `
+            -f "inputs[avalonia_commit]=${{ github.sha }}" `
+            -f "inputs[package_version]=${{ steps.package.outputs.package_version }}" `
+            -f "inputs[avalonia_run_id]=${{ github.run_id }}" `
+            -f "inputs[artifact_name]=avalonia-packages-${{ github.sha }}"
