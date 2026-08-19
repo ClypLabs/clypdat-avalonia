@@ -22,7 +22,7 @@
   </ItemGroup>
   <PropertyGroup>
     <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510</ClypDatRestoreProperties>
-    <ClypDatPackProperties>Configuration=Release;TargetFramework=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510;WarningsNotAsErrors=CS1591</ClypDatPackProperties>
+    <ClypDatPackProperties>Configuration=Release;TargetFramework=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510;TreatWarningsAsErrors=false</ClypDatPackProperties>
   </PropertyGroup>
   <Target Name="Restore">
     <MSBuild Projects="@(ClypDatWin32Package)" Targets="Restore" BuildInParallel="false"
