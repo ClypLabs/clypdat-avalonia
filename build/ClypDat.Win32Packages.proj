@@ -21,7 +21,7 @@
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Themes.Fluent/Avalonia.Themes.Fluent.csproj" />
   </ItemGroup>
   <PropertyGroup>
-    <ClypDatPackageProperties>Configuration=Release;TargetFramework=net10.0;TargetFrameworks=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false</ClypDatPackageProperties>
+    <ClypDatPackageProperties>Configuration=Release;TargetFramework=net10.0;TargetFrameworks=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510</ClypDatPackageProperties>
   </PropertyGroup>
   <Target Name="Restore">
     <MSBuild Projects="@(ClypDatWin32Package)" Targets="Restore" BuildInParallel="false"
