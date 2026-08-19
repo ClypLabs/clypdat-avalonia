@@ -6,6 +6,10 @@
   <!-- This is intentionally an explicit Windows package surface. Mobile
        workloads, samples, tools, and test projects never enter this graph. -->
   <ItemGroup>
+    <!-- Avalonia.csproj builds this host while generating its package, but the
+         project is not part of the static package graph. Restore it explicitly
+         without adding it to the published package surface. -->
+    <ClypDatWin32BuildDependency Include="$(MSBuildThisFileDirectory)../src/tools/Avalonia.Designer.HostApp/Avalonia.Designer.HostApp.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../packages/Avalonia/Avalonia.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Base/Avalonia.Base.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls/Avalonia.Controls.csproj" />
@@ -21,10 +25,12 @@
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Themes.Fluent/Avalonia.Themes.Fluent.csproj" />
   </ItemGroup>
   <PropertyGroup>
-    <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510</ClypDatRestoreProperties>
-    <ClypDatPackProperties>Configuration=Release;TargetFramework=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510;TreatWarningsAsErrors=false</ClypDatPackProperties>
+    <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510,CS1591,RS2008,CA1416</ClypDatRestoreProperties>
+    <ClypDatPackProperties>Configuration=Release;TargetFramework=net10.0;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=NU1510,CS1591,RS2008,CA1416;TreatWarningsAsErrors=false</ClypDatPackProperties>
   </PropertyGroup>
   <Target Name="Restore">
+    <MSBuild Projects="@(ClypDatWin32BuildDependency)" Targets="Restore" BuildInParallel="false"
+             Properties="$(ClypDatRestoreProperties)" />
     <MSBuild Projects="@(ClypDatWin32Package)" Targets="Restore" BuildInParallel="false"
              Properties="$(ClypDatRestoreProperties)" />
   </Target>
