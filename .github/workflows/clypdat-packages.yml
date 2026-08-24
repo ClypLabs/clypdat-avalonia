@@ -45,6 +45,7 @@ jobs:
             'Avalonia',
             'Avalonia.Base',
             'Avalonia.Controls',
+            'Avalonia.Controls.Media',
             'Avalonia.DesignerSupport',
             'Avalonia.Desktop',
             'Avalonia.Dialogs',
