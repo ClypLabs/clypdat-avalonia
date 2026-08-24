@@ -1,3 +1,5 @@
+> **Disclaimer:** This is ClypDat's modified version of Avalonia, maintained to support ClypDat's needs. It is not an official AvaloniaUI repository.
+
 [![Star_Banner@3x](https://github.com/user-attachments/assets/d55eb468-fa5c-499f-858e-54618beb6f92)](https://github.com/sponsors/AvaloniaUI)
 [![Hero](https://github.com/user-attachments/assets/404db53f-f515-4a3a-bb18-f145dc34cedb)](https://avaloniaui.net?utm_source=github&utm_medium=referral&utm_content=readme_link)
 
