@@ -118,10 +118,10 @@ jobs:
 
       - name: Trigger ClypDat Dev build
         env:
-          GH_TOKEN: ${{ secrets.CLYPDAT_DEV_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.CLYPDAT_CI_CROSSREPO }}
         shell: pwsh
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { throw "CLYPDAT_DEV_DISPATCH_TOKEN is not configured." }
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { throw "CLYPDAT_CI_CROSSREPO is not configured." }
           gh api repos/ClypLabs/ClypDat/actions/workflows/dev-build.yml/dispatches `
             -f ref=master `
             -f "inputs[avalonia_commit]=${{ github.sha }}" `
