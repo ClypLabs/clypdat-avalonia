@@ -101,7 +101,7 @@ jobs:
           foreach ($id in $expectedIds) {
             if (-not $packageIds.ContainsKey($id)) { throw "Package metadata id $id is missing." }
           }
-          [ordered]@{ schema = 1; repository = "ClypDat/clypdat-avalonia"; commit = "${{ github.sha }}"; packageVersion = $expected; packages = @($entries) } |
+          [ordered]@{ schema = 1; repository = "ClypLabs/clypdat-avalonia"; commit = "${{ github.sha }}"; packageVersion = $expected; packages = @($entries) } |
             ConvertTo-Json -Depth 5 | Set-Content artifacts/nuget/manifest.json -Encoding utf8
           Compress-Archive -Path artifacts/nuget/* -DestinationPath Avalonia-ClypDat-Packages.zip
 
@@ -119,7 +119,7 @@ jobs:
         shell: pwsh
         run: |
           if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { throw "CLYPDAT_DEV_DISPATCH_TOKEN is not configured." }
-          gh api repos/ClypDat/ClypDat/actions/workflows/dev-build.yml/dispatches `
+          gh api repos/ClypLabs/ClypDat/actions/workflows/dev-build.yml/dispatches `
             -f ref=master `
             -f "inputs[avalonia_commit]=${{ github.sha }}" `
             -f "inputs[package_version]=${{ steps.package.outputs.package_version }}" `
