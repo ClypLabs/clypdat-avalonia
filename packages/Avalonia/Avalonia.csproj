@@ -48,6 +48,39 @@
     </ItemGroup>
   </Target>
   
+  <!-- ClypDat's targeted package graph packs projects directly and never runs the
+       upstream Numerge merge, which is what normally folds the build tasks and the
+       analyzers into this package. Add them here for that graph only. -->
+  <ItemGroup Condition="'$(ClypDatIncludeToolingAssets)' == 'true'">
+    <ClypDatToolingAnalyzer Include="../../src/tools/Avalonia.Generators/bin/$(Configuration)/netstandard2.0/Avalonia.Generators.dll" />
+    <ClypDatToolingAnalyzer Include="../../src/tools/Avalonia.Analyzers.CSharp/bin/$(Configuration)/netstandard2.0/Avalonia.Analyzers.CSharp.dll" />
+    <ClypDatToolingAnalyzer Include="../../src/tools/Avalonia.Analyzers.CodeFixes.CSharp/bin/$(Configuration)/netstandard2.0/Avalonia.Analyzers.CodeFixes.CSharp.dll" />
+    <ClypDatToolingAnalyzer Include="../../src/tools/Avalonia.Analyzers.VisualBasic/bin/$(Configuration)/netstandard2.0/Avalonia.Analyzers.VisualBasic.dll" />
+  </ItemGroup>
+
+  <Target Name="ClypDatAddToolingAssetsToPackage" BeforeTargets="GenerateNuspec" Condition="'$(ClypDatIncludeToolingAssets)' == 'true'">
+    <PropertyGroup>
+      <ClypDatBuildTasksOutput>../../src/Avalonia.Build.Tasks/bin/$(Configuration)/netstandard2.0</ClypDatBuildTasksOutput>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <!-- Upstream ILRepacks Mono.Cecil into the task assembly. Without that step the
+           dependencies ship next to it instead, which MSBuild resolves from the same
+           folder. Microsoft.Build.Framework is excluded: MSBuild always supplies its own. -->
+      <_PackageFiles Include="$(ClypDatBuildTasksOutput)/*.dll"
+                     Exclude="$(ClypDatBuildTasksOutput)/Microsoft.Build.Framework.dll">
+        <PackagePath>tools/netstandard2.0</PackagePath>
+        <Visible>false</Visible>
+        <BuildAction>None</BuildAction>
+      </_PackageFiles>
+      <_PackageFiles Include="@(ClypDatToolingAnalyzer)">
+        <PackagePath>analyzers/dotnet/cs</PackagePath>
+        <Visible>false</Visible>
+        <BuildAction>None</BuildAction>
+      </_PackageFiles>
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <Content Include="*.props">
        <Pack>true</Pack>

@@ -39,7 +39,7 @@
     <ClypDatKnownNullableWarnings>CS8600,CS8601,CS8602,CS8604,CS8618,CS8625,CS8631</ClypDatKnownNullableWarnings>
     <ClypDatPackageNoWarn>NU1510,NU5104,CS1591,RS2008,CA1416,$(ClypDatKnownNullableWarnings)</ClypDatPackageNoWarn>
     <ClypDatRestoreProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=$(ClypDatPackageNoWarn)</ClypDatRestoreProperties>
-    <ClypDatPackProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ForcePackAvaloniaNative=True;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=$(ClypDatPackageNoWarn);TreatWarningsAsErrors=true</ClypDatPackProperties>
+    <ClypDatPackProperties>Configuration=Release;AvsCurrentTargetFramework=net10.0;AvsLegacyTargetFrameworks=;AvsSkipBuildingLegacyTargetFrameworks=True;ForcePackAvaloniaNative=True;ClypDatIncludeToolingAssets=true;ClypDatPackageVersion=$(ClypDatPackageVersion);Version=$(ClypDatPackageVersion);PackageVersion=$(ClypDatPackageVersion);PackageOutputPath=$(ClypDatPackageOutput);IncludeLinuxSkia=false;IncludeWasmSkia=false;NoWarn=$(ClypDatPackageNoWarn);TreatWarningsAsErrors=true</ClypDatPackProperties>
   </PropertyGroup>
   <Target Name="Restore">
     <MSBuild Projects="@(ClypDatWin32BuildDependency)" Targets="Restore" BuildInParallel="false"
