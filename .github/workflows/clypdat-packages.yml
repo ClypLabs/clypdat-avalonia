@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Win32 layered-opacity tests
         shell: pwsh
-        run: dotnet test tests/Avalonia.IntegrationTests.Win32/Avalonia.IntegrationTests.Win32.csproj -c Release -f net10.0 --no-restore
+        run: dotnet run --project tests/Avalonia.IntegrationTests.Win32/Avalonia.IntegrationTests.Win32.csproj -c Release -f net10.0 -p:AvsSkipBuildingLegacyTargetFrameworks=True
 
       - name: Verify package smoke set and manifest
         shell: pwsh
