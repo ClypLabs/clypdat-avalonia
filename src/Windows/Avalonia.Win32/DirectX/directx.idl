@@ -276,7 +276,10 @@ interface IDXGIResource : IDXGIDeviceSubObject
 interface IDXGIKeyedMutex :
     IDXGIDeviceSubObject
 {
-    HRESULT AcquireSync( [in] UINT64 Key, [in] uint dwMilliseconds);
+    // int, not HRESULT: acquiring can end in WAIT_TIMEOUT or WAIT_ABANDONED,
+    // both success-class codes, so the caller needs the code itself rather than
+    // a throw-on-failure wrapper that treats them as acquisition.
+    int AcquireSync( [in] UINT64 Key, [in] uint dwMilliseconds);
     HRESULT ReleaseSync( [in] UINT64 Key);
 };
 

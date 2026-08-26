@@ -63,7 +63,26 @@ internal class AngleExternalMemoryD3D11Texture2D : IGlExternalImageTexture
         _mutex = null;
     }
 
-    public void AcquireKeyedMutex(uint key) => Mutex.AcquireSync(key, int.MaxValue);
+    // GlSkiaExternalObjectsFeature.SnapshotWithKeyedMutex calls this from the
+    // render thread, so the wait has to be bounded. An unbounded one parks
+    // compositing for the entire process on a texture whose other owner may
+    // never hand it back - the window stops painting, and nothing recovers.
+    // Losing one frame is recoverable; hanging the compositor is not.
+    private const int KeyedMutexTimeoutMilliseconds = 1000;
+
+    public void AcquireKeyedMutex(uint key)
+    {
+        // AcquireSync returns the raw HRESULT rather than throwing, because the
+        // interesting outcomes are not failures: WAIT_TIMEOUT (0x102) and
+        // WAIT_ABANDONED (0x80) are success-class codes, so a SUCCEEDED() check
+        // would wave through a mutex that was never acquired and let the caller
+        // read - and then release - a surface it does not own.
+        var result = Mutex.AcquireSync(key, KeyedMutexTimeoutMilliseconds);
+        if (result != 0)
+            throw new OpenGlException(
+                $"IDXGIKeyedMutex.AcquireSync({key}) did not acquire within {KeyedMutexTimeoutMilliseconds}ms (HRESULT 0x{result:X8})");
+    }
+
     public void ReleaseKeyedMutex(uint key) => Mutex.ReleaseSync(key);
 
     public int TextureId { get; private set; }
