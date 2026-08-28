@@ -192,8 +192,7 @@ namespace Avalonia.Win32.WinRT.Composition
                 try
                 {
                     var iid = IID_ID3D11Texture2D;
-                    var rect = new UnmanagedMethods.RECT { right = size.Width, bottom = size.Height };
-                    off = drawSurface!.Interop.BeginDraw(&rect, &iid, &pTexture);
+                    off = drawSurface!.Interop.BeginDraw(null, &iid, &pTexture);
                 }
                 catch (Exception e)
                 {
