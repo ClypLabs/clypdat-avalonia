@@ -134,24 +134,21 @@ namespace Avalonia.Win32.WinRT.Composition
             _d3dDevice.Dispose();
         }
 
-        private SurfaceSet CreateSurface(in IRenderTarget.RenderTargetSceneInfo sceneInfo)
+        private SurfaceSet CreateSurface(PixelSize capacity, bool isTransparency)
         {
-            bool isTransparency = sceneInfo.TransparencyLevel != CompositionTransparencyLevel.None;
-            var surfaceSize = sceneInfo.Size;
-
             // Do not use Premultiplied when the window is not Transparency. Because the Premultiplied AlphaMode will increase the performance loss of DWM. See https://github.com/AvaloniaUI/Avalonia/issues/20643
             var alphaMode = isTransparency ? DirectXAlphaMode.Premultiplied : DirectXAlphaMode.Ignore;
             var drawingSurface = _compositionDevice2.CreateDrawingSurface2(new UnmanagedMethods.SIZE()
                 {
-                    X = surfaceSize.Width, 
-                    Y = surfaceSize.Height,
+                    X = capacity.Width,
+                    Y = capacity.Height,
                 },
                 DirectXPixelFormat.B8G8R8A8UIntNormalized, alphaMode);
             try
             {
                 var surface = drawingSurface.QueryInterface<ICompositionSurface>();
                 var interop = drawingSurface.QueryInterface<ICompositionDrawingSurfaceInterop>();
-                return new SurfaceSet(drawingSurface, surface, interop, surfaceSize, isTransparency);
+                return new SurfaceSet(drawingSurface, surface, interop, capacity, isTransparency);
             }
             catch
             {
@@ -185,9 +182,10 @@ namespace Avalonia.Win32.WinRT.Composition
                 var size = sceneInfo.Size;
                 var scale = sceneInfo.Scaling;
                 var previousSurface = _activeSurface;
-                var replacement = previousSurface is null || previousSurface.Size != size ||
+                var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size);
+                var replacement = previousSurface is null || !CompositionSurfaceAllocationPolicy.Fits(size, previousSurface.Size) ||
                                   previousSurface.SupportsTransparency != isTransparency;
-                drawSurface = replacement ? CreateSurface(in sceneInfo) : previousSurface;
+                drawSurface = replacement ? CreateSurface(capacity, isTransparency) : previousSurface;
                 
                 void* pTexture;
                 UnmanagedMethods.POINT off;
@@ -223,14 +221,16 @@ namespace Avalonia.Win32.WinRT.Composition
             }
         }
 
-        private void PublishSurface(SurfaceSet replacement)
+        private void PublishSurface(SurfaceSet replacement, PixelSize size)
         {
             var previous = _activeSurface;
             _activeSurface = replacement;
-            _window.ResizeIfNeeded(replacement.Size);
+            _window.ResizeIfNeeded(size);
             _window.SetSurface(replacement.Surface);
             previous?.Dispose();
         }
+
+        private void ResizeVisual(PixelSize size) => _window.ResizeIfNeeded(size);
 
         private class Session : IDirect3D11TextureRenderTargetRenderSession
         {
@@ -263,7 +263,9 @@ namespace Avalonia.Win32.WinRT.Composition
                     _texture.Dispose();
                     _surface.Interop.EndDraw();
                     if (_publishSurface)
-                        _owner.PublishSurface(_surface);
+                        _owner.PublishSurface(_surface, _size);
+                    else
+                        _owner.ResizeVisual(_size);
                 }
                 catch
                 {

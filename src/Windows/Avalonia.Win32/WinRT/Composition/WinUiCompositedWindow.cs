@@ -73,6 +73,9 @@ internal class WinUiCompositedWindow : IDisposable
         containerChildren.InsertAtTop(_visual);
 
         _surfaceBrush = shared.Compositor.CreateSurfaceBrush();
+        _surfaceBrush.SetStretch(CompositionStretch.None);
+        _surfaceBrush.SetHorizontalAlignmentRatio(0);
+        _surfaceBrush.SetVerticalAlignmentRatio(0);
         using var compositionBrush = _surfaceBrush.QueryInterface<ICompositionBrush>();
         spriteVisual.SetBrush(compositionBrush);
         _target.SetRoot(containerVisual);

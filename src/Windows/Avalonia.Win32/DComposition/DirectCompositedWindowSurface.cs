@@ -91,20 +91,17 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
         _window = window;
     }
 
-    private SurfaceSet CreateSurface(in IRenderTarget.RenderTargetSceneInfo sceneInfo)
+    private SurfaceSet CreateSurface(PixelSize capacity, bool isTransparency)
     {
         using var surfaceFactory = _shared.Device.CreateSurfaceFactory(_d3dDevice);
-
-        bool isTransparency = sceneInfo.TransparencyLevel != CompositionTransparencyLevel.None;
-        var surfaceSize = sceneInfo.Size;
 
         var alphaMode = isTransparency ?
             DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_PREMULTIPLIED :
             DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_IGNORE;
 
-        var surface = surfaceFactory.CreateVirtualSurface((uint)surfaceSize.Width, (uint)surfaceSize.Height,
+        var surface = surfaceFactory.CreateVirtualSurface((uint)capacity.Width, (uint)capacity.Height,
             DXGI_FORMAT.DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode);
-        return new SurfaceSet(surface, surfaceSize, isTransparency);
+        return new SurfaceSet(surface, capacity, isTransparency);
     }
 
     public void Dispose()
@@ -135,9 +132,10 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             var size = sceneInfo.Size;
             var scale = sceneInfo.Scaling;
             var previousSurface = _activeSurface;
-            var replacement = previousSurface is null || previousSurface.Size != size ||
+            var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size);
+            var replacement = previousSurface is null || !CompositionSurfaceAllocationPolicy.Fits(size, previousSurface.Size) ||
                               previousSurface.SupportsTransparency != isTransparency;
-            drawSurface = replacement ? CreateSurface(in sceneInfo) : previousSurface;
+            drawSurface = replacement ? CreateSurface(capacity, isTransparency) : previousSurface;
                 
             void* pTexture;
             UnmanagedMethods.POINT off;
