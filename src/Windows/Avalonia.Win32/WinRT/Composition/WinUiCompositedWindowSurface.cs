@@ -192,8 +192,25 @@ namespace Avalonia.Win32.WinRT.Composition
                 try
                 {
                     var iid = IID_ID3D11Texture2D;
-                    var rect = new UnmanagedMethods.RECT { right = size.Width, bottom = size.Height };
-                    off = drawSurface!.Interop.BeginDraw(&rect, &iid, &pTexture);
+                    // Deliberately null, i.e. the whole surface, even though the
+                    // surface is over-allocated by CompositionSurfaceAllocationPolicy
+                    // and a bounded rect would be less work per frame.
+                    //
+                    // BeginDraw returns the offset it wants the caller to draw at,
+                    // and that offset is honoured below. The brush this surface is
+                    // presented through is CompositionStretch.None with both
+                    // alignment ratios at 0 (WinUiCompositedWindow.SetSurface), so
+                    // the visual always samples from the surface's top-left. Passing
+                    // a rect frees the compositor to hand back a non-zero offset,
+                    // and the frame is then drawn somewhere the visual never looks -
+                    // a window that renders nothing at all while its DWM thumbnail
+                    // still shows content. Null pins the offset to (0,0).
+                    //
+                    // DirectCompositedWindowSurface can bound its rect safely because
+                    // it owns a virtual surface per window rather than sharing an
+                    // atlas. Bounding this one needs the brush offset to move with
+                    // the draw offset; until then, do not "optimize" this back.
+                    off = drawSurface!.Interop.BeginDraw(null, &iid, &pTexture);
                 }
                 catch (Exception e)
                 {
