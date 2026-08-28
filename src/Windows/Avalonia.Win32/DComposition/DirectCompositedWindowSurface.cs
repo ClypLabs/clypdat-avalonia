@@ -60,11 +60,25 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
     private readonly IPlatformGraphicsContext _context;
     private readonly DirectCompositionShared _shared;
     private readonly DirectCompositedWindow _window;
-    private IDCompositionVirtualSurface? _surface;
+    private SurfaceSet? _activeSurface;
     private bool _lost;
-    private PixelSize _size;
     private readonly IUnknown _d3dDevice;
-    private bool _isSurfaceSupportTransparency;
+
+    private sealed class SurfaceSet : IDisposable
+    {
+        public readonly IDCompositionVirtualSurface Surface;
+        public readonly PixelSize Size;
+        public readonly bool SupportsTransparency;
+
+        public SurfaceSet(IDCompositionVirtualSurface surface, PixelSize size, bool supportsTransparency)
+        {
+            Surface = surface;
+            Size = size;
+            SupportsTransparency = supportsTransparency;
+        }
+
+        public void Dispose() => Surface.Dispose();
+    }
 
     public DirectCompositedWindowRenderTarget(
         IPlatformGraphicsContext context, IntPtr d3dDevice,
@@ -77,8 +91,7 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
         _window = window;
     }
 
-    [MemberNotNull(nameof(_surface))]
-    private void CreateSurface(in IRenderTarget.RenderTargetSceneInfo sceneInfo)
+    private SurfaceSet CreateSurface(in IRenderTarget.RenderTargetSceneInfo sceneInfo)
     {
         using var surfaceFactory = _shared.Device.CreateSurfaceFactory(_d3dDevice);
 
@@ -89,15 +102,14 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_PREMULTIPLIED :
             DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_IGNORE;
 
-        _surface = surfaceFactory.CreateVirtualSurface((uint)surfaceSize.Width, (uint)surfaceSize.Height, DXGI_FORMAT.DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode);
-
-        _isSurfaceSupportTransparency = isTransparency;
-        _size = surfaceSize;
+        var surface = surfaceFactory.CreateVirtualSurface((uint)surfaceSize.Width, (uint)surfaceSize.Height,
+            DXGI_FORMAT.DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode);
+        return new SurfaceSet(surface, surfaceSize, isTransparency);
     }
 
     public void Dispose()
     {
-        _surface?.Dispose();
+        _activeSurface?.Dispose();
         _d3dDevice.Dispose();
     }
 
@@ -116,25 +128,16 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             throw new RenderTargetCorruptedException();
         var transaction = _window.BeginTransaction();
         bool needsEndDraw = false;
+        SurfaceSet? drawSurface = null;
         try
         {
             bool isTransparency = sceneInfo.TransparencyLevel != CompositionTransparencyLevel.None;
-            if (_surface is null || isTransparency != _isSurfaceSupportTransparency)
-            {
-                _surface?.Dispose();
-
-                CreateSurface(in sceneInfo);
-            }
-
             var size = sceneInfo.Size;
             var scale = sceneInfo.Scaling;
-            if (_size != size)
-            {
-                _surface.Resize((uint)size.Width, (uint)size.Height);
-                _size = size;
-            }
-
-            _window.SetSurface(_surface);
+            var previousSurface = _activeSurface;
+            var replacement = previousSurface is null || previousSurface.Size != size ||
+                              previousSurface.SupportsTransparency != isTransparency;
+            drawSurface = replacement ? CreateSurface(in sceneInfo) : previousSurface;
                 
             void* pTexture;
             UnmanagedMethods.POINT off;
@@ -142,10 +145,12 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             {
                 var rect = new UnmanagedMethods.RECT { right = size.Width, bottom = size.Height };
                 var iid = IID_ID3D11Texture2D;
-                off = _surface.BeginDraw(&rect, &iid, &pTexture);
+                off = drawSurface!.Surface.BeginDraw(&rect, &iid, &pTexture);
             }
             catch (Exception e)
             {
+                if (replacement)
+                    drawSurface!.Dispose();
                 _lost = true;
                 throw new RenderTargetCorruptedException(e);
             }
@@ -154,7 +159,7 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             var offset = new PixelPoint(off.X, off.Y);
             using var texture = MicroComRuntime.CreateProxyFor<IUnknown>(pTexture, true);
 
-            var session = new Session(_surface, texture, transaction, size, offset, scale);
+            var session = new Session(this, drawSurface!, replacement, texture, transaction, size, offset, scale);
             transaction = null;
             return session;
         }
@@ -163,29 +168,41 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             if (transaction != null)
             {
                 if (needsEndDraw)
-                    _surface?.EndDraw();
+                    drawSurface!.Surface.EndDraw();
                 transaction.Dispose();
             }
         }
     }
 
+    private void PublishSurface(SurfaceSet replacement)
+    {
+        var previous = _activeSurface;
+        _activeSurface = replacement;
+        _window.SetSurface(replacement.Surface);
+        previous?.Dispose();
+    }
+
     private class Session : IDirect3D11TextureRenderTargetRenderSession
     {
+        private readonly DirectCompositedWindowRenderTarget _owner;
+        private readonly SurfaceSet _surface;
+        private readonly bool _publishSurface;
         private readonly IDisposable _transaction;
         private readonly PixelSize _size;
         private readonly PixelPoint _offset;
         private readonly double _scaling;
-        private readonly IDCompositionSurface _surfaceInterop;
         private readonly IUnknown _texture;
 
-        public Session(IDCompositionSurface surfaceInterop, IUnknown texture, IDisposable transaction,
+        public Session(DirectCompositedWindowRenderTarget owner, SurfaceSet surface, bool publishSurface, IUnknown texture, IDisposable transaction,
             PixelSize size, PixelPoint offset, double scaling)
         {
+            _owner = owner;
+            _surface = surface;
+            _publishSurface = publishSurface;
             _transaction = transaction;
             _size = size;
             _offset = offset;
             _scaling = scaling;
-            _surfaceInterop = surfaceInterop.CloneReference();
             _texture = texture.CloneReference();
         }
 
@@ -194,8 +211,15 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             try
             {
                 _texture.Dispose();
-                _surfaceInterop.EndDraw();
-                _surfaceInterop.Dispose();
+                _surface.Surface.EndDraw();
+                if (_publishSurface)
+                    _owner.PublishSurface(_surface);
+            }
+            catch
+            {
+                if (_publishSurface)
+                    _surface.Dispose();
+                throw;
             }
             finally
             {
