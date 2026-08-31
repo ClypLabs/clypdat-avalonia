@@ -13,6 +13,7 @@
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../packages/Avalonia/Avalonia.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Base/Avalonia.Base.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls/Avalonia.Controls.csproj" />
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls.ColorPicker/Avalonia.Controls.ColorPicker.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Controls.Media/Avalonia.Controls.Media.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.DesignerSupport/Avalonia.DesignerSupport.csproj" />
     <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Dialogs/Avalonia.Dialogs.csproj" />
