@@ -17,7 +17,7 @@ using NWayland.Protocols.XdgShell;
 
 namespace Avalonia.Wayland;
 
-internal partial class WindowImpl : WindowBaseImpl, IWindowImpl
+internal partial class WindowImpl : WindowBaseImpl, IWindowImpl, IPortalParentProvider
 {
     private WaylandSurfaceCreateResult<WXdgTopLevelProxy>? _handle;
     private WXdgTopLevelProxy? _surfaceProxy;
@@ -101,6 +101,7 @@ internal partial class WindowImpl : WindowBaseImpl, IWindowImpl
 
     public override object? TryGetFeature(Type featureType)
     {
+        if (featureType == typeof(IPortalParentProvider)) return this;
         if (featureType == typeof(ITextInputMethodImpl))
             return _textInputMethod ??= new WaylandTextInputMethod(this);
         if (featureType == typeof(IStorageProvider))
@@ -129,6 +130,8 @@ internal partial class WindowImpl : WindowBaseImpl, IWindowImpl
         // HACK: relies on focus root being TopLevel which currently is true
         () => Task.FromResult(((PresentationSource?)InputRoot)?.FocusRoot is TopLevel tl ? (IStorageProvider?)new ManagedStorageProvider(tl) : null)
     };
+
+    public Task<IPortalParentLease?> AcquirePortalParentAsync() => AcquirePortalParentLeaseAsync();
 
     private async Task<IPortalParentLease?> AcquirePortalParentLeaseAsync()
     {

@@ -15,7 +15,7 @@ namespace Avalonia.FreeDesktop;
 /// on the portal side becomes invalid afterwards, so the lease MUST be held until the
 /// portal call completes.</para>
 /// </remarks>
-internal interface IPortalParentLease : IAsyncDisposable
+public interface IPortalParentLease : IAsyncDisposable
 {
     /// <summary>Prefixed parent-window handle string (e.g. <c>"x11:1A2B"</c>).</summary>
     string Handle { get; }
@@ -26,4 +26,11 @@ internal sealed class TrivialPortalParentLease : IPortalParentLease
     public TrivialPortalParentLease(string handle) => Handle = handle;
     public string Handle { get; }
     public ValueTask DisposeAsync() => default;
+}
+
+/// <summary>Exports a scoped parent handle for application-owned portal dialogs.</summary>
+public interface IPortalParentProvider
+{
+    /// <summary>Keep the returned lease alive until the portal dialog finishes.</summary>
+    Task<IPortalParentLease?> AcquirePortalParentAsync();
 }

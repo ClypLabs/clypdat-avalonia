@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ClypDatPackageIncludeLinuxSkia>true</ClypDatPackageIncludeLinuxSkia>
-    <ClypDatPackageVersion Condition="'$(ClypDatPackageVersion)' == ''">12.2.1006-linux.1</ClypDatPackageVersion>
+    <ClypDatPackageVersion Condition="'$(ClypDatPackageVersion)' == ''">12.2.1006-linux.2</ClypDatPackageVersion>
   </PropertyGroup>
   <!-- Desktop still references Win32 and Native. Keep the complete matching
        managed graph, then add native Wayland and Linux renderer assets. -->
