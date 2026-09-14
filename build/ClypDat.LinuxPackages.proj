@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <ClypDatPackageIncludeLinuxSkia>true</ClypDatPackageIncludeLinuxSkia>
+    <ClypDatPackageVersion Condition="'$(ClypDatPackageVersion)' == ''">12.2.1006-linux.1</ClypDatPackageVersion>
+  </PropertyGroup>
+  <!-- Desktop still references Win32 and Native. Keep the complete matching
+       managed graph, then add native Wayland and Linux renderer assets. -->
+  <Import Project="ClypDat.Win32Packages.proj" />
+  <ItemGroup>
+    <ClypDatWin32Package Include="$(MSBuildThisFileDirectory)../src/Avalonia.Wayland/Avalonia.Wayland.csproj" />
+  </ItemGroup>
+</Project>

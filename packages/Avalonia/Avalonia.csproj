@@ -84,23 +84,23 @@
   <ItemGroup>
     <Content Include="*.props">
        <Pack>true</Pack>
-       <PackagePath>build\;buildTransitive\</PackagePath>
+       <PackagePath>build;buildTransitive</PackagePath>
     </Content>
     <Content Include="..\..\src\tools\Avalonia.Generators\Avalonia.Generators.props">
       <Pack>true</Pack>
-      <PackagePath>build\;buildTransitive\</PackagePath>
+      <PackagePath>build;buildTransitive</PackagePath>
     </Content>
     <Content Include="*.targets">
       <Pack>true</Pack>
-      <PackagePath>build\;buildTransitive\</PackagePath>
+      <PackagePath>build;buildTransitive</PackagePath>
     </Content>
     <Content Include="AvaloniaItemSchema.xaml">
       <Pack>true</Pack>
-      <PackagePath>build\;buildTransitive\</PackagePath>
+      <PackagePath>build;buildTransitive</PackagePath>
     </Content>
     <Content Include="AvaloniaRules.Project.xml">
       <Pack>true</Pack>
-      <PackagePath>build\;buildTransitive\</PackagePath>
+      <PackagePath>build;buildTransitive</PackagePath>
     </Content>
   </ItemGroup>
   <Import Project="..\..\build\SharedVersion.props" />
