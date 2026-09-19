@@ -77,6 +77,31 @@ public sealed class LayeredWindowOpacityTests : IDisposable
     }
 
     [Fact]
+    public void OpacitySetWhileFullScreenAppliesAfterLeavingFullScreen()
+    {
+        _window.WindowState = WindowState.FullScreen;
+
+        Win32Properties.SetLayeredWindowOpacity(_window, 0.5);
+
+        _window.WindowState = WindowState.Normal;
+
+        Assert.True(IsLayered(_window));
+        Assert.Equal(128, GetAlpha(_window));
+    }
+
+    [Fact]
+    public void WindowStyleCallbackCanOverrideAvaloniaLayeredStyle()
+    {
+        Win32Properties.SetLayeredWindowOpacity(_window, 0.5);
+        Win32Properties.AddWindowStylesCallback(_window,
+            (style, exStyle) => (style, exStyle & ~(uint)WS_EX_LAYERED));
+
+        _window.CanResize = !_window.CanResize;
+
+        Assert.False(IsLayered(_window));
+    }
+
+    [Fact]
     public void RejectsInvalidValues()
     {
         foreach (var value in new[] { -0.1, 1.1, double.NaN, double.PositiveInfinity, double.NegativeInfinity })

@@ -15,7 +15,7 @@ jobs:
   package:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -39,6 +39,14 @@ jobs:
       - name: Run Win32 layered-opacity tests
         shell: pwsh
         run: dotnet run --project tests/Avalonia.IntegrationTests.Win32/Avalonia.IntegrationTests.Win32.csproj -c Release -f net10.0 -p:AvsSkipBuildingLegacyTargetFrameworks=True
+
+      - name: Run media clock regression tests
+        shell: pwsh
+        run: dotnet run --project tests/Avalonia.Controls.Media.UnitTests/Avalonia.Controls.Media.UnitTests.csproj -c Release -f net10.0 -p:AvsSkipBuildingLegacyTargetFrameworks=True -- --filter-class '*MediaClockTests'
+
+      - name: Run swapchain recovery regression tests
+        shell: pwsh
+        run: dotnet run --project tests/Avalonia.Base.UnitTests/Avalonia.Base.UnitTests.csproj -c Release -f net10.0 -p:AvsSkipBuildingLegacyTargetFrameworks=True -- --filter-class '*SwapchainTests'
 
       - name: Verify package smoke set and manifest
         shell: pwsh
@@ -89,6 +97,13 @@ jobs:
               try { $metadata = ([xml]$reader.ReadToEnd()).package.metadata }
               finally { $reader.Dispose() }
               if ($metadata.version -ne $expected) { throw "Package $($file.Name) has version $($metadata.version), expected $expected." }
+              if ($metadata.id -eq 'Avalonia') {
+                $expectedTools = @('Avalonia.Build.Tasks.dll', 'Mono.Cecil.dll', 'Mono.Cecil.Mdb.dll', 'Mono.Cecil.Pdb.dll', 'Mono.Cecil.Rocks.dll', 'System.Numerics.Vectors.dll', 'System.Threading.dll', 'System.Threading.Thread.dll') | Sort-Object
+                $actualTools = @($archive.Entries | Where-Object FullName -like 'tools/netstandard2.0/*.dll' | ForEach-Object { $_.Name } | Sort-Object)
+                if (($actualTools -join '|') -ne ($expectedTools -join '|')) {
+                  throw "Unexpected Avalonia MSBuild tooling files: $($actualTools -join ', ')."
+                }
+              }
               $packageIds[$metadata.id] = $true
               foreach ($dependency in (@($metadata.dependencies.group.dependency) + @($metadata.dependencies.dependency))) {
                 if ($dependency.id -like 'Avalonia*' -and $dependency.version -eq $expected -and -not $packageIds.ContainsKey($dependency.id)) {
@@ -110,7 +125,7 @@ jobs:
           Compress-Archive -Path artifacts/nuget/* -DestinationPath Avalonia-ClypDat-Packages.zip
 
       - name: Upload immutable package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: avalonia-packages-${{ github.sha }}
           path: Avalonia-ClypDat-Packages.zip

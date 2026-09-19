@@ -70,6 +70,7 @@ namespace Avalonia.Win32.WinRT.Composition
         private readonly ICompositorInterop _interop;
         private readonly ICompositionGraphicsDevice _compositionDevice;
         private readonly ICompositionGraphicsDevice2 _compositionDevice2;
+        private readonly int _maxTextureDimension;
         private SurfaceSet? _activeSurface;
         private bool _lost;
         private sealed class SurfaceSet : IDisposable
@@ -112,6 +113,7 @@ namespace Avalonia.Win32.WinRT.Composition
                 _interop = compositor.QueryInterface<ICompositorInterop>();
                 _compositionDevice = _interop.CreateGraphicsDevice(_d3dDevice);
                 _compositionDevice2 = _compositionDevice.QueryInterface<ICompositionGraphicsDevice2>();
+                _maxTextureDimension = CompositionSurfaceAllocationPolicy.GetMaxTextureDimension(_d3dDevice);
             }
             catch
             {
@@ -175,6 +177,8 @@ namespace Avalonia.Win32.WinRT.Composition
             var transaction = _window.BeginTransaction();
 
             bool needsEndDraw = false;
+            // Set while drawSurface is a replacement that nothing else owns yet.
+            bool ownsDrawSurface = false;
             SurfaceSet? drawSurface = null;
             try
             {
@@ -182,10 +186,25 @@ namespace Avalonia.Win32.WinRT.Composition
                 var size = sceneInfo.Size;
                 var scale = sceneInfo.Scaling;
                 var previousSurface = _activeSurface;
-                var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size);
-                var replacement = previousSurface is null || !CompositionSurfaceAllocationPolicy.Fits(size, previousSurface.Size) ||
+                var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size, _maxTextureDimension);
+                var replacement = previousSurface is null || capacity != previousSurface.Size ||
                                   previousSurface.SupportsTransparency != isTransparency;
-                drawSurface = replacement ? CreateSurface(capacity, isTransparency) : previousSurface;
+                if (replacement)
+                {
+                    try
+                    {
+                        drawSurface = CreateSurface(capacity, isTransparency);
+                    }
+                    catch (Exception e)
+                    {
+                        _lost = true;
+                        throw new RenderTargetCorruptedException(e);
+                    }
+
+                    ownsDrawSurface = true;
+                }
+                else
+                    drawSurface = previousSurface;
                 
                 void* pTexture;
                 UnmanagedMethods.POINT off;
@@ -214,8 +233,6 @@ namespace Avalonia.Win32.WinRT.Composition
                 }
                 catch (Exception e)
                 {
-                    if (replacement)
-                        drawSurface!.Dispose();
                     _lost = true;
                     throw new RenderTargetCorruptedException(e);
                 }
@@ -226,25 +243,36 @@ namespace Avalonia.Win32.WinRT.Composition
 
                 var session = new Session(this, drawSurface!, replacement, texture, transaction, size, offset, scale);
                 transaction = null;
+                ownsDrawSurface = false;
                 return session;
             }
             finally
             {
                 if (transaction != null)
                 {
-                    if (needsEndDraw)
-                        drawSurface!.Interop.EndDraw();
-                    transaction.Dispose();
+                    try
+                    {
+                        if (needsEndDraw)
+                            drawSurface!.Interop.EndDraw();
+                    }
+                    finally
+                    {
+                        if (ownsDrawSurface)
+                            drawSurface!.Dispose();
+                        transaction.Dispose();
+                    }
                 }
             }
         }
 
         private void PublishSurface(SurfaceSet replacement, PixelSize size)
         {
-            var previous = _activeSurface;
-            _activeSurface = replacement;
+            // Only make the replacement active once the window uses it. If either
+            // call throws, the previous surface is still the live one and stays owned here.
             _window.ResizeIfNeeded(size);
             _window.SetSurface(replacement.Surface);
+            var previous = _activeSurface;
+            _activeSurface = replacement;
             previous?.Dispose();
         }
 
@@ -287,13 +315,22 @@ namespace Avalonia.Win32.WinRT.Composition
                 }
                 catch
                 {
-                    if (_publishSurface)
+                    _owner._lost = true;
+                    if (_publishSurface && !ReferenceEquals(_owner._activeSurface, _surface))
                         _surface.Dispose();
                     throw;
                 }
                 finally
                 {
-                    _transaction.Dispose();
+                    try
+                    {
+                        _transaction.Dispose();
+                    }
+                    catch
+                    {
+                        _owner._lost = true;
+                        throw;
+                    }
                 }
             }
 

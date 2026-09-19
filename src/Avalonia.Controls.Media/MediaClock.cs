@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace Avalonia.Controls.Media;
@@ -56,6 +58,9 @@ public sealed class MediaClockChangedEventArgs : EventArgs
 /// The clock uses <see cref="TimeProvider"/> rather than wall-clock time, making
 /// playback scheduling deterministic in tests. Each observable transport transition
 /// creates a new operation generation and cancels work associated with the previous one.
+/// <see cref="Changed"/> is raised outside the clock's lock, one event at a time and in
+/// transition order. A transition made from another thread while an event is being raised
+/// is delivered by the thread that is already raising events, after the current handler returns.
 /// </remarks>
 public sealed class MediaClock : IDisposable
 {
@@ -68,6 +73,8 @@ public sealed class MediaClock : IDisposable
     private long _anchorTimestamp;
     private long _generation;
     private bool _disposed;
+    private readonly Queue<MediaClockChangedEventArgs> _pendingChanges = new();
+    private bool _raisingChanges;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MediaClock"/> class.
@@ -200,7 +207,6 @@ public sealed class MediaClock : IDisposable
 
     private void Transition(MediaPlaybackState? state, TimeSpan? position)
     {
-        MediaClockChangedEventArgs? changed = null;
         CancellationTokenSource? cancellation = null;
         lock (_gate)
         {
@@ -219,12 +225,50 @@ public sealed class MediaClock : IDisposable
             _anchorTimestamp = now;
             cancellation = _generationCancellation;
             var generation = AdvanceGenerationCore();
-            changed = new MediaClockChangedEventArgs(previous, new MediaClockSnapshot(_state, _position, generation.Value));
+            _pendingChanges.Enqueue(new MediaClockChangedEventArgs(previous,
+                new MediaClockSnapshot(_state, _position, generation.Value)));
         }
 
         cancellation!.Cancel();
         cancellation.Dispose();
-        Changed?.Invoke(this, changed!);
+        RaisePendingChanges();
+    }
+
+    private void RaisePendingChanges()
+    {
+        lock (_gate)
+        {
+            // Another call is already delivering events; it will pick up the one just queued.
+            if (_raisingChanges)
+                return;
+            _raisingChanges = true;
+        }
+
+        ExceptionDispatchInfo? failure = null;
+        while (true)
+        {
+            MediaClockChangedEventArgs? changed;
+            lock (_gate)
+            {
+                if (!_pendingChanges.TryDequeue(out changed))
+                {
+                    _raisingChanges = false;
+                    break;
+                }
+            }
+
+            try
+            {
+                Changed?.Invoke(this, changed);
+            }
+            catch (Exception e)
+            {
+                // A failing subscriber must not strand transitions queued by
+                // another thread or a reentrant handler.
+                failure ??= ExceptionDispatchInfo.Capture(e);
+            }
+        }
+        failure?.Throw();
     }
 
     private MediaOperationGeneration AdvanceGenerationCore()
@@ -266,9 +310,16 @@ public static class MediaTiming
     /// <summary>Converts a timeline position to whole milliseconds without using floating point arithmetic.</summary>
     public static long ToMilliseconds(TimeSpan position) => ClampToZero(position).Ticks / TimeSpan.TicksPerMillisecond;
 
-    /// <summary>Creates a timeline position from non-negative whole milliseconds.</summary>
+    private const long MaxMilliseconds = long.MaxValue / TimeSpan.TicksPerMillisecond;
+
+    /// <summary>
+    /// Creates a timeline position from non-negative whole milliseconds, saturating at
+    /// <see cref="TimeSpan.MaxValue"/>.
+    /// </summary>
     public static TimeSpan FromMilliseconds(long milliseconds) =>
-        milliseconds <= 0 ? TimeSpan.Zero : TimeSpan.FromMilliseconds(milliseconds);
+        milliseconds <= 0 ? TimeSpan.Zero :
+        milliseconds > MaxMilliseconds ? TimeSpan.MaxValue :
+        TimeSpan.FromTicks(milliseconds * TimeSpan.TicksPerMillisecond);
 
     internal static TimeSpan AddSaturating(TimeSpan left, TimeSpan right)
     {

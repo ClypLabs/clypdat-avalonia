@@ -14,6 +14,8 @@ namespace Avalonia.FreeDesktop;
 /// the <c>zxdg_exported_v2</c> object that provided the handle string; the imported handle
 /// on the portal side becomes invalid afterwards, so the lease MUST be held until the
 /// portal call completes.</para>
+/// <para>Implementations must tolerate <see cref="IAsyncDisposable.DisposeAsync"/> being called
+/// more than once; only the first call releases the handle.</para>
 /// </remarks>
 internal interface IPortalParentLease : IAsyncDisposable
 {

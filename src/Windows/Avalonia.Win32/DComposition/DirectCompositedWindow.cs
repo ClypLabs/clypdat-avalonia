@@ -41,13 +41,21 @@ internal class DirectCompositedWindow : IDisposable
 
     public void SetSurface(IDCompositionSurface surface) => _container.SetContent(surface);
 
-    public IDisposable BeginTransaction()
+    public IDisposable BeginTransaction() => BeginTransaction(_shared.SyncRoot, _device.Commit);
+
+    internal static IDisposable BeginTransaction(object syncRoot, Action commit)
     {
-        Monitor.Enter(_shared.SyncRoot);
+        Monitor.Enter(syncRoot);
         return Disposable.Create(() =>
         {
-            _device.Commit();
-            Monitor.Exit(_shared.SyncRoot);
+            try
+            {
+                commit();
+            }
+            finally
+            {
+                Monitor.Exit(syncRoot);
+            }
         });
     }
 }

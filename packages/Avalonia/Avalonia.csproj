@@ -66,9 +66,10 @@
     <ItemGroup>
       <!-- Upstream ILRepacks Mono.Cecil into the task assembly. Without that step the
            dependencies ship next to it instead, which MSBuild resolves from the same
-           folder. Microsoft.Build.Framework is excluded: MSBuild always supplies its own. -->
-      <_PackageFiles Include="$(ClypDatBuildTasksOutput)/*.dll"
-                     Exclude="$(ClypDatBuildTasksOutput)/Microsoft.Build.Framework.dll">
+           folder. Microsoft.Build.Framework is left out: MSBuild always supplies its own.
+           The files are listed explicitly so stale output never ends up in the package. -->
+      <ClypDatBuildTasksFile Include="Avalonia.Build.Tasks.dll;Mono.Cecil.dll;Mono.Cecil.Mdb.dll;Mono.Cecil.Pdb.dll;Mono.Cecil.Rocks.dll;System.Numerics.Vectors.dll;System.Threading.dll;System.Threading.Thread.dll" />
+      <_PackageFiles Include="@(ClypDatBuildTasksFile->'$(ClypDatBuildTasksOutput)/%(Identity)')">
         <PackagePath>tools/netstandard2.0</PackagePath>
         <Visible>false</Visible>
         <BuildAction>None</BuildAction>

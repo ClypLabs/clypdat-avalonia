@@ -110,6 +110,7 @@ namespace Avalonia.Win32
         private readonly WindowTransparencyLevel _defaultTransparencyLevel;
         private WindowCornerPreference _cornerPreference;
         private bool _layeredWindowStyleAddedByAvalonia;
+        private double? _layeredWindowOpacity;
 
         private const int MaxPointerHistorySize = 512;
         private static readonly PooledList<RawPointerPoint> s_intermediatePointsPooledList = new();
@@ -1153,6 +1154,10 @@ namespace Avalonia.Win32
                             SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_FRAMECHANGED);
 
                 UpdateWindowProperties(_windowProperties, true);
+
+                // Opacity requested while fullscreen could not add WS_EX_LAYERED to the live window.
+                if (_layeredWindowOpacity is { } opacity)
+                    SetLayeredWindowOpacity(opacity);
             }
 
             TaskBarList.MarkFullscreen(_hwnd, fullscreen);
@@ -1499,6 +1504,9 @@ namespace Avalonia.Win32
                 _savedWindowInfo.Style = style;
                 _savedWindowInfo.ExStyle = exStyle;
 
+                if (_layeredWindowStyleAddedByAvalonia)
+                    exStyle |= WindowStyles.WS_EX_LAYERED;
+
                 if (WindowStylesCallback is { } callback)
                 {
                     var (s, e) = callback((uint)style, (uint)exStyle);
@@ -1506,9 +1514,6 @@ namespace Avalonia.Win32
                     style = (WindowStyles)s;
                     exStyle = (WindowStyles)e;
                 }
-
-                if (_layeredWindowStyleAddedByAvalonia)
-                    exStyle |= WindowStyles.WS_EX_LAYERED;
 
                 SetStyle(style);
                 SetExtendedStyle(exStyle);
@@ -1608,6 +1613,16 @@ namespace Avalonia.Win32
 
         public void SetLayeredWindowOpacity(double? opacity)
         {
+            _layeredWindowOpacity = opacity;
+
+            // While fullscreen, SetExtendedStyle only updates the saved style, so a window that is not
+            // already layered cannot become layered yet. SetFullScreen(false) applies the stored value.
+            if (opacity is not null && _isFullScreenActive &&
+                !((WindowStyles)GetWindowLong(_hwnd, (int)WindowLongParam.GWL_EXSTYLE)).HasFlag(WindowStyles.WS_EX_LAYERED))
+            {
+                return;
+            }
+
             var currentStyle = GetExtendedStyle();
 
             if (opacity is null)

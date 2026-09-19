@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls.Media;
 using Xunit;
 
@@ -98,6 +101,82 @@ public class MediaClockTests
         Assert.Equal(TimeSpan.Zero, changed!.Previous.Position);
         Assert.Equal(TimeSpan.FromSeconds(1), changed.Current.Position);
         Assert.Equal(changed.Current, target.Snapshot);
+    }
+
+    [Fact]
+    public void Changed_Should_Reach_Every_Subscriber_In_Transition_Order_When_A_Handler_Transitions()
+    {
+        using var target = new MediaClock(new TestTimeProvider());
+        var observed = new List<long>();
+        target.Changed += (_, args) =>
+        {
+            if (args.Current.State == MediaPlaybackState.Playing && args.Current.Position == TimeSpan.Zero)
+                target.Seek(TimeSpan.FromSeconds(5));
+        };
+        target.Changed += (_, args) => observed.Add(args.Current.Generation);
+
+        target.Play();
+
+        Assert.Equal(new long[] { 1, 2 }, observed);
+        Assert.Equal(TimeSpan.FromSeconds(5), target.Position);
+    }
+
+    [Fact]
+    public void Throwing_Subscriber_Does_Not_Strand_A_Queued_Transition()
+    {
+        using var target = new MediaClock(new TestTimeProvider());
+        var observed = new List<long>();
+        target.Changed += (_, args) =>
+        {
+            if (args.Current.Generation == 1)
+            {
+                target.Seek(TimeSpan.FromSeconds(5));
+                throw new InvalidOperationException("Subscriber failed");
+            }
+            observed.Add(args.Current.Generation);
+        };
+
+        Assert.Throws<InvalidOperationException>(target.Play);
+        Assert.Equal(new long[] { 2 }, observed);
+    }
+
+    [Fact]
+    public async Task Concurrent_Transitions_Are_Delivered_In_Generation_Order()
+    {
+        using var target = new MediaClock(new TestTimeProvider());
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var observed = new List<long>();
+        target.Changed += (_, args) =>
+        {
+            if (args.Current.Generation == 1)
+            {
+                entered.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            }
+            observed.Add(args.Current.Generation);
+        };
+        var play = Task.Run(target.Play, TestContext.Current.CancellationToken);
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            target.Seek(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            release.Set();
+        }
+        await play;
+        Assert.Equal(new long[] { 1, 2 }, observed);
+    }
+
+    [Fact]
+    public void FromMilliseconds_Should_Saturate_Instead_Of_Throwing()
+    {
+        Assert.Equal(TimeSpan.Zero, MediaTiming.FromMilliseconds(-5));
+        Assert.Equal(TimeSpan.FromSeconds(1), MediaTiming.FromMilliseconds(1000));
+        Assert.Equal(TimeSpan.MaxValue, MediaTiming.FromMilliseconds(long.MaxValue));
+        Assert.Equal(TimeSpan.MaxValue, MediaTiming.FromMilliseconds(long.MaxValue / TimeSpan.TicksPerMillisecond + 1));
     }
 
     private sealed class TestTimeProvider : TimeProvider

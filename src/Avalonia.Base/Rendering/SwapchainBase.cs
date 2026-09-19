@@ -21,7 +21,7 @@ abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : class, IS
         Target = target;
     }
 
-    static bool IsBroken(TImage image) => image.LastPresent?.IsFaulted == true;
+    static bool IsBroken(TImage image) => image.LastPresent is { IsCompleted: true, Status: not TaskStatus.RanToCompletion };
     static bool IsReady(TImage image) => image.LastPresent == null || image.LastPresent.Status == TaskStatus.RanToCompletion;
 
     TImage? CleanupAndFindNextImage(PixelSize size)
@@ -38,6 +38,7 @@ abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : class, IS
             {
                 image.DisposeAsync();
                 _pendingImages.RemoveAt(c);
+                continue;
             }
 
             if (matches && ready)

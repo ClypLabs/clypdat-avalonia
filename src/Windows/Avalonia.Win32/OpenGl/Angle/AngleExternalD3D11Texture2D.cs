@@ -69,6 +69,7 @@ internal class AngleExternalMemoryD3D11Texture2D : IGlExternalImageTexture
     // never hand it back - the window stops painting, and nothing recovers.
     // Losing one frame is recoverable; hanging the compositor is not.
     private const int KeyedMutexTimeoutMilliseconds = 1000;
+    private const int WAIT_ABANDONED = 0x80;
 
     public void AcquireKeyedMutex(uint key)
     {
@@ -78,6 +79,11 @@ internal class AngleExternalMemoryD3D11Texture2D : IGlExternalImageTexture
         // would wave through a mutex that was never acquired and let the caller
         // read - and then release - a surface it does not own.
         var result = Mutex.AcquireSync(key, KeyedMutexTimeoutMilliseconds);
+        // WAIT_ABANDONED means the device on the other side went away while it
+        // held the mutex. Waiting again will never succeed, so report the
+        // texture as lost and let the owner recreate it instead of retrying.
+        if (result == WAIT_ABANDONED)
+            throw new PlatformGraphicsContextLostException();
         if (result != 0)
             throw new OpenGlException(
                 $"IDXGIKeyedMutex.AcquireSync({key}) did not acquire within {KeyedMutexTimeoutMilliseconds}ms (HRESULT 0x{result:X8})");

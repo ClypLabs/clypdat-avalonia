@@ -63,6 +63,7 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
     private SurfaceSet? _activeSurface;
     private bool _lost;
     private readonly IUnknown _d3dDevice;
+    private readonly int _maxTextureDimension;
 
     private sealed class SurfaceSet : IDisposable
     {
@@ -85,6 +86,7 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
         DirectCompositionShared shared, DirectCompositedWindow window)
     {
         _d3dDevice = MicroComRuntime.CreateProxyFor<IUnknown>(d3dDevice, false).CloneReference();
+        _maxTextureDimension = CompositionSurfaceAllocationPolicy.GetMaxTextureDimension(_d3dDevice);
 
         _context = context;
         _shared = shared;
@@ -125,6 +127,8 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             throw new RenderTargetCorruptedException();
         var transaction = _window.BeginTransaction();
         bool needsEndDraw = false;
+        // Set while drawSurface is a replacement that nothing else owns yet.
+        bool ownsDrawSurface = false;
         SurfaceSet? drawSurface = null;
         try
         {
@@ -132,10 +136,25 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             var size = sceneInfo.Size;
             var scale = sceneInfo.Scaling;
             var previousSurface = _activeSurface;
-            var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size);
-            var replacement = previousSurface is null || !CompositionSurfaceAllocationPolicy.Fits(size, previousSurface.Size) ||
+            var capacity = CompositionSurfaceAllocationPolicy.GetCapacity(size, previousSurface?.Size, _maxTextureDimension);
+            var replacement = previousSurface is null || capacity != previousSurface.Size ||
                               previousSurface.SupportsTransparency != isTransparency;
-            drawSurface = replacement ? CreateSurface(capacity, isTransparency) : previousSurface;
+            if (replacement)
+            {
+                try
+                {
+                    drawSurface = CreateSurface(capacity, isTransparency);
+                }
+                catch (Exception e)
+                {
+                    _lost = true;
+                    throw new RenderTargetCorruptedException(e);
+                }
+
+                ownsDrawSurface = true;
+            }
+            else
+                drawSurface = previousSurface;
                 
             void* pTexture;
             UnmanagedMethods.POINT off;
@@ -147,8 +166,6 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             }
             catch (Exception e)
             {
-                if (replacement)
-                    drawSurface!.Dispose();
                 _lost = true;
                 throw new RenderTargetCorruptedException(e);
             }
@@ -159,24 +176,35 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
 
             var session = new Session(this, drawSurface!, replacement, texture, transaction, size, offset, scale);
             transaction = null;
+            ownsDrawSurface = false;
             return session;
         }
         finally
         {
             if (transaction != null)
             {
-                if (needsEndDraw)
-                    drawSurface!.Surface.EndDraw();
-                transaction.Dispose();
+                try
+                {
+                    if (needsEndDraw)
+                        drawSurface!.Surface.EndDraw();
+                }
+                finally
+                {
+                    if (ownsDrawSurface)
+                        drawSurface!.Dispose();
+                    transaction.Dispose();
+                }
             }
         }
     }
 
     private void PublishSurface(SurfaceSet replacement)
     {
+        // Only make the replacement active once the window uses it. If SetSurface
+        // throws, the previous surface is still the live one and stays owned here.
+        _window.SetSurface(replacement.Surface);
         var previous = _activeSurface;
         _activeSurface = replacement;
-        _window.SetSurface(replacement.Surface);
         previous?.Dispose();
     }
 
@@ -215,13 +243,22 @@ internal class DirectCompositedWindowRenderTarget : IDirect3D11TextureRenderTarg
             }
             catch
             {
-                if (_publishSurface)
+                _owner._lost = true;
+                if (_publishSurface && !ReferenceEquals(_owner._activeSurface, _surface))
                     _surface.Dispose();
                 throw;
             }
             finally
             {
-                _transaction.Dispose();
+                try
+                {
+                    _transaction.Dispose();
+                }
+                catch
+                {
+                    _owner._lost = true;
+                    throw;
+                }
             }
         }
 

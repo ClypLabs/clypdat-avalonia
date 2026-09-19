@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
@@ -151,6 +152,7 @@ internal partial class WindowImpl : WindowBaseImpl, IWindowImpl
     private sealed class XdgForeignPortalParentLease : IPortalParentLease
     {
         private readonly IWaylandXdgTopLevelExport _export;
+        private int _disposed;
         public XdgForeignPortalParentLease(IWaylandXdgTopLevelExport export, string handle)
         {
             _export = export;
@@ -159,7 +161,8 @@ internal partial class WindowImpl : WindowBaseImpl, IWindowImpl
         public string Handle { get; }
         public ValueTask DisposeAsync()
         {
-            _export.Dispose();
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                _export.Dispose();
             return default;
         }
     }
