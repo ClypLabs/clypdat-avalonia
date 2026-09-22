@@ -282,8 +282,21 @@ partial class Build : NukeBuild
             RunCoreTest("Avalonia.Markup.UnitTests");
             RunCoreTest("Avalonia.Markup.Xaml.UnitTests");
             RunCoreTest("Avalonia.Skia.UnitTests");
-            // ClypDat fork: the headless, WPF-compare, render and leak suites
-            // were removed - ClypDat runs on Win32 with Skia only.
+            RunCoreTest("Avalonia.Headless.NUnit.PerAssembly.UnitTests");
+            RunCoreTest("Avalonia.Headless.NUnit.PerTest.UnitTests");
+            RunCoreTest("Avalonia.Headless.XUnit.PerAssembly.UnitTests");
+            RunCoreTest("Avalonia.Headless.XUnit.PerTest.UnitTests");
+
+            if (Parameters.IsRunningOnWindows)
+                RunCoreTest("Avalonia.UnitTests.WpfCompare");
+        });
+
+    Target RunRenderTests => _ => _
+        .OnlyWhenStatic(() => !Parameters.SkipTests)
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            RunCoreTest("Avalonia.Skia.RenderTests");
         });
 
     Target RunToolsTests => _ => _
@@ -292,6 +305,16 @@ partial class Build : NukeBuild
         .Executes(() =>
         {
             RunCoreTest("Avalonia.Generators.Tests");
+            if (Parameters.IsRunningOnWindows)
+                RunCoreTest("Avalonia.DesignerSupport.Tests");
+        });
+
+    Target RunLeakTests => _ => _
+        .OnlyWhenStatic(() => !Parameters.SkipTests && Parameters.IsRunningOnWindows)
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            RunCoreTest("Avalonia.LeakTests");
         });
 
     Target ZipFiles => _ => _
@@ -397,8 +420,10 @@ partial class Build : NukeBuild
 
     Target RunTests => _ => _
         .DependsOn(RunCoreLibsTests)
+        .DependsOn(RunRenderTests)
         .DependsOn(RunToolsTests)
-        .DependsOn(RunHtmlPreviewerTests);
+        .DependsOn(RunHtmlPreviewerTests)
+        .DependsOn(RunLeakTests);
 
     Target Package => _ => _
         .DependsOn(RunTests)

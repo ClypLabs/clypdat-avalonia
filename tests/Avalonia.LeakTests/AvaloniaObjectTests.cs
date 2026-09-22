@@ -1,0 +1,362 @@
+﻿using System;
+using System.ComponentModel;
+using System.Reactive.Subjects;
+using System.Runtime.CompilerServices;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Data.Core;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
+using Avalonia.Threading;
+using Avalonia.UnitTests;
+using Xunit;
+
+namespace Avalonia.LeakTests
+{
+    public class AvaloniaObjectTests : ScopedTestBase
+    {
+        [Fact]
+        public void Binding_To_Direct_Property_Does_Not_Get_Collected()
+        {
+            var target = new Class1();
+
+            Func<WeakReference> setupBinding = () =>
+            {
+                var source = new Subject<string>();
+                var sub = target.Bind((AvaloniaProperty)Class1.FooProperty, source);
+                source.OnNext("foo");
+                return new WeakReference(source);
+            };
+
+            var weakSource = setupBinding();
+
+            CollectGarbage();
+
+            Assert.Equal("foo", target.Foo);
+            Assert.True(weakSource.IsAlive);
+        }
+
+        [Fact]
+        public void Binding_To_Direct_Property_Gets_Collected_When_Completed()
+        {
+            var target = new Class1();
+
+            Func<WeakReference> setupBinding = () =>
+            {
+                var source = new Subject<string>();
+                var sub = target.Bind((AvaloniaProperty)Class1.FooProperty, source);
+                return new WeakReference(source);
+            };
+
+            var weakSource = setupBinding();
+
+            Action completeSource = () =>
+            {
+                ((ISubject<string>)weakSource.Target!).OnCompleted();
+            };
+
+            completeSource();
+            CollectGarbage();
+            Assert.False(weakSource.IsAlive);
+        }
+
+        [Fact]
+        public void CompiledBinding_To_InpcProperty_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            var source = new Class2 { Foo = "foo" };
+
+            WeakReference SetupBinding()
+            {
+                var path = new CompiledBindingPathBuilder()
+                    .Property(
+                        new ClrPropertyInfo(
+                            nameof(Class2.Foo),
+                            target => ((Class2)target).Foo,
+                            (target, value) => ((Class2)target).Foo = (string?)value,
+                            typeof(string)),
+                        PropertyInfoAccessorFactory.CreateInpcPropertyAccessor)
+                    .Build();
+
+                var target = new TextBlock();
+
+                target.Bind(TextBlock.TextProperty, new CompiledBindingExtension
+                {
+                    Source = source,
+                    Path = path
+                });
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+        }
+
+        [Fact]
+        public void CompiledBinding_To_AvaloniaProperty_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            var source = new StyledElement { Name = "foo" };
+
+            WeakReference SetupBinding()
+            {
+                var path = new CompiledBindingPathBuilder()
+                    .Property(StyledElement.NameProperty, PropertyInfoAccessorFactory.CreateAvaloniaPropertyAccessor)
+                    .Build();
+
+                var target = new TextBlock();
+
+                target.Bind(TextBlock.TextProperty, new CompiledBindingExtension
+                {
+                    Source = source,
+                    Path = path
+                });
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+        }
+
+        [Fact]
+        public void CompiledBinding_To_Method_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            var source = new Class1();
+
+            WeakReference SetupBinding()
+            {
+                var path = new CompiledBindingPathBuilder()
+                    .Command(
+                        nameof(Class1.DoSomething),
+                        (o, _) => ((Class1) o).DoSomething(),
+                        (_, _) => true,
+                        [])
+                    .Build();
+
+                var target = new Button();
+
+                target.Bind(Button.CommandProperty, new CompiledBindingExtension
+                {
+                    Source = source,
+                    Path = path
+                });
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+        }
+
+        [Fact]
+        public void CompiledBinding_StreamObservable_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            // Issue #5872: a binding to a long-lived observable via the '^' stream operator should
+            // not keep the target alive, in the same way as every other binding type above.
+            var observable = new Subject<string>();
+            var source = new Class3 { Observable = observable };
+
+            WeakReference SetupBinding()
+            {
+                var path = new CompiledBindingPathBuilder()
+                    .Property(
+                        new ClrPropertyInfo(
+                            nameof(Class3.Observable),
+                            target => ((Class3)target).Observable,
+                            null,
+                            typeof(IObservable<string>)),
+                        PropertyInfoAccessorFactory.CreateInpcPropertyAccessor)
+                    .StreamObservable<string>()
+                    .Build();
+
+                var target = new TextBlock();
+
+                target.Bind(TextBlock.TextProperty, new CompiledBindingExtension
+                {
+                    Source = source,
+                    Path = path
+                });
+
+                observable.OnNext("foo");
+                Assert.Equal("foo", target.Text);
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+
+            // Keep the source and its observable alive to simulate a resource that outlives the target.
+            GC.KeepAlive(source);
+            GC.KeepAlive(observable);
+        }
+
+        [Fact]
+        public void ToBinding_Observable_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            // Issue #18176 (duplicate of #5872): a binding created from an observable via
+            // ToBinding() should not keep the target alive while the observable is alive.
+            var observable = new Subject<string>();
+
+            WeakReference SetupBinding()
+            {
+                var target = new TextBlock();
+
+                target.Bind(TextBlock.TextProperty, observable.ToBinding());
+
+                observable.OnNext("foo");
+                Assert.Equal("foo", target.Text);
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+
+            // Keep the observable alive to simulate a resource that outlives the target.
+            GC.KeepAlive(observable);
+        }
+
+        [Fact]
+        public void StreamObservable_Binding_With_Alive_Target_Keeps_Source_Alive()
+        {
+            // The weak subscription introduced for #5872 must not collect the source observable
+            // while the binding target is still alive: an active binding still needs its source.
+            var target = new TextBlock();
+
+            WeakReference SetupBinding()
+            {
+                var observable = new Subject<string>();
+                var source = new Class3 { Observable = observable };
+
+                var path = new CompiledBindingPathBuilder()
+                    .Property(
+                        new ClrPropertyInfo(
+                            nameof(Class3.Observable),
+                            o => ((Class3)o).Observable,
+                            null,
+                            typeof(IObservable<string>)),
+                        PropertyInfoAccessorFactory.CreateInpcPropertyAccessor)
+                    .StreamObservable<string>()
+                    .Build();
+
+                target.Bind(TextBlock.TextProperty, new CompiledBindingExtension
+                {
+                    Source = source,
+                    Path = path
+                });
+
+                observable.OnNext("foo");
+                Assert.Equal("foo", target.Text);
+
+                return new WeakReference(observable);
+            }
+
+            var weakObservable = SetupBinding();
+
+            CollectGarbage();
+
+            // The target is still alive, so its binding must keep the source observable alive.
+            Assert.True(weakObservable.IsAlive);
+
+            GC.KeepAlive(target);
+        }
+
+        [Fact]
+        public void Binding_To_AttachedProperty_With_Alive_Source_Does_Not_Keep_Target_Alive()
+        {
+            var source = new StyledElement { Name = "foo" };
+
+            WeakReference SetupBinding()
+            {
+                var target = new TextBlock();
+
+                target.Bind(TextBlock.TextProperty, new Binding
+                {
+                    Source = source,
+                    Path = "(Grid.Row)",
+                    TypeResolver = (_, name) => name == "Grid" ? typeof(Grid) : throw new NotSupportedException()
+                });
+
+                return new WeakReference(target);
+            }
+
+            var weakTarget = SetupBinding();
+
+            CollectGarbage();
+            Assert.False(weakTarget.IsAlive);
+        }
+
+        private static void CollectGarbage()
+        {
+            GC.Collect();
+            // Forces WeakEvent compact
+            Dispatcher.UIThread.RunJobs();
+            GC.Collect();
+        }
+
+        private class Class1 : AvaloniaObject
+        {
+            public static readonly DirectProperty<Class1, string> FooProperty =
+                AvaloniaProperty.RegisterDirect<Class1, string>(
+                    "Foo",
+                    o => o.Foo,
+                    (o, v) => o.Foo = v,
+                    unsetValue: "unset");
+
+            private string _foo = "initial2";
+
+            static Class1()
+            {
+            }
+
+            public string Foo
+            {
+                get { return _foo; }
+                set { SetAndRaise(FooProperty, ref _foo, value); }
+            }
+
+            public void DoSomething()
+            {
+            }
+        }
+
+        private sealed class Class3
+        {
+            public IObservable<string>? Observable { get; set; }
+        }
+
+        private sealed class Class2 : INotifyPropertyChanged
+        {
+            private string? _foo;
+
+            public string? Foo
+            {
+                get => _foo;
+                set
+                {
+                    if (_foo != value)
+                    {
+                        _foo = value;
+                        OnPropertyChanged();
+                    }
+                }
+            }
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+
+            private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+}
